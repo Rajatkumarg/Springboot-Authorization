@@ -1,0 +1,92 @@
+1.
+just add "spring-boot-starter-security" in pom.xml and all endpoint will be secured
+On deploying app, it will generate a temporary password
+Postman - Auth -> Basic Auth -> username - admin -> Password - generated pwd
+
+2.
+@Configuration
+@EnableWebSecurity
+public class SpringSecurity{
+
+	@Autowired
+	UserDetailServiceImpl userDetailsService;
+	
+	@Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+		System.out.println("securityFilterChain called");
+		return http.authorizeHttpRequests(request -> request
+                .requestMatchers("/employee/**").authenticated()
+                .anyRequest().permitAll())
+        .httpBasic(Customizer.withDefaults())
+        .csrf(AbstractHttpConfigurer::disable)
+        .build();	
+    }
+
+    @Autowired
+    public void configureGlobal(AuthenticationManagerBuilder auth) throws Exception {
+        auth.userDetailsService(userDetailsService).passwordEncoder(new BCryptPasswordEncoder		());
+        System.out.println("configureGlobal called");
+    }
+}
+
+@Service
+public class UserDetailServiceImpl implements UserDetailsService{
+
+	@Autowired
+	EmployeeRepository empRepo;
+	
+	@Override
+	public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+		Employee e = empRepo.findByUsername(username);
+		System.out.println("loadUserByUsername called");
+		if (e != null) {
+            return User.builder()
+                    .username(e.getUsername())
+                    .password(e.getPwd())
+                    .roles(e.getRoles().toArray(new String[0]))
+                    .build();
+        }
+        throw new UsernameNotFoundException("User not found with username: " + username);
+    
+	}
+
+}
+
+It will validate username and password from db. So write db username and pwd
+
+3.
+only admin access - check roles as admin
+
+System.out.println("securityFilterChain called");
+		return http.authorizeHttpRequests(request -> request
+                .requestMatchers("/employee/**","/address/**").authenticated()
+                .requestMatchers("/admin/**").hasRole("Admin")
+                .anyRequest().permitAll())
+        .httpBasic(Customizer.withDefaults())
+        .csrf(AbstractHttpConfigurer::disable)
+        .build();
+
+
+4.
+Using JWT
+
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-api</artifactId>
+			<version>0.12.5</version>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-jackson</artifactId>
+			<version>0.12.5</version>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-impl</artifactId>
+			<version>0.12.5</version>
+			<scope>runtime</scope>
+		</dependency>
+
+jwtUtil - jwtFilter
+
+postman - auth - bearer Token - put generated jwt token
